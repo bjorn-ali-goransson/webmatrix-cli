@@ -2,9 +2,11 @@
 using Microsoft.WebMatrix.Core;
 using Microsoft.WebMatrix.Core.Server;
 using Microsoft.WebMatrix.ProcessModel;
+using Microsoft.WebMatrix.Utility;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -16,6 +18,8 @@ namespace WebMatrixTest
 {
     class Program
     {
+        static IisHelperService IisExpressHelperService { get; } = (IisHelperService)Activator.CreateInstance(typeof(IisHelperService).Assembly.GetType("Microsoft.WebMatrix.Core.IisExpressHelperServiceImplementation"), new object[] { false });
+
         static void Main(string[] args)
         {
             if (args.Length == 1 && args[0] == "list")
@@ -43,7 +47,7 @@ namespace WebMatrixTest
 
         static void StartSite(string name)
         {
-            var site = ManagementUnit.ReadOnlyServerManager.Sites.SingleOrDefault(s => s.Name == name);
+            var site = GetSite(name);
 
             if (site == null)
             {
@@ -51,12 +55,12 @@ namespace WebMatrixTest
                 return;
             }
 
-            site.Start();
+            StartSite(site);
         }
 
         static void StartSite(int id)
         {
-            var site = ManagementUnit.ReadOnlyServerManager.Sites.SingleOrDefault(s => s.Id == id);
+            var site = GetSite(id);
 
             if (site == null)
             {
@@ -64,7 +68,35 @@ namespace WebMatrixTest
                 return;
             }
 
-            site.Start();
+            StartSite(site);
+        }
+
+        static void StartSite(Microsoft.Web.Administration.Site site)
+        {
+            var iisExpressSite = GetIisExpressSite(site);
+
+            iisExpressSite.Start();
+
+            var binding = site.Bindings.First();
+
+            var url = BindingUtility.GetClickableUrlLinkFromBinding("localhost", binding.Protocol, binding.BindingInformation);
+
+            ProcessHelper.TryOpenWithWindows(url);
+        }
+
+        static Site GetIisExpressSite(Microsoft.Web.Administration.Site site)
+        {
+            return IisExpressHelperService.SiteManager.GetSite(site.Name);
+        }
+
+        static Microsoft.Web.Administration.Site GetSite(string name)
+        {
+            return ManagementUnit.ReadOnlyServerManager.Sites.SingleOrDefault(s => s.Name == name);
+        }
+
+        static Microsoft.Web.Administration.Site GetSite(int id)
+        {
+            return ManagementUnit.ReadOnlyServerManager.Sites.SingleOrDefault(s => s.Id == id);
         }
 
         static void PrintUsage()
